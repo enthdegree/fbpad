@@ -124,7 +124,7 @@ static void _draw_pos(int r, int c, int cursor)
 /* assumes visible && !lazy */
 static void _draw_row(int r)
 {
-	int cbg, cch;		/* current background and character */
+	int cbg = 0, cch;	/* current background and character */
 	int fbg, fsc = -1;	/* filling background and start column */
 	int i;
 	/* call pad_fill() only once for blank columns with identical backgrounds */

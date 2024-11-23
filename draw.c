@@ -149,3 +149,20 @@ char *fb_dev(void)
 {
 	return fbdev;
 }
+
+#ifdef EINK
+int fb_fd(void)
+{
+  return fd;
+}
+
+int fb_yoffset(void)
+{
+	return vinfo.yoffset;
+}
+
+int fb_xoffset(void)
+{
+	return vinfo.xoffset;
+}
+#endif

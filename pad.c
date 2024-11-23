@@ -5,6 +5,9 @@
 #include "conf.h"
 #include "draw.h"
 #include "fbpad.h"
+#ifdef EINK
+#include "eink.h"
+#endif
 
 static int fbroff, fbcoff, fbrows, fbcols;
 static int rows, cols;
@@ -148,6 +151,9 @@ static char *ch2fb(int fn, int c, int fg, int bg)
 	fbbits = gc_put(c, fg, bg);
 	bmp2fb(fbbits, bits, fg & FN_C, bg & FN_C,
 		font_rows(fonts[fn]), font_cols(fonts[fn]));
+#ifdef EINK
+	fbpad_fbink_refresh();
+#endif
 	return fbbits;
 }
 
@@ -173,6 +179,9 @@ static void fb_box(int sr, int er, int sc, int ec, unsigned val)
 	int i;
 	for (i = sr; i < er; i++)
 		fb_set(i, sc, row, ec - sc);
+#ifdef EINK
+	fbpad_fbink_refresh();
+#endif
 }
 
 void pad_border(unsigned c, int wid)
