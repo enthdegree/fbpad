@@ -1,3 +1,4 @@
+#include <linux/fb.h>
 #include <time.h>
 #include <pthread.h>
 #include <fbink.h>
@@ -17,8 +18,13 @@ static pthread_mutex_t fbpad_fbink_stop_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t fbpad_fbink_refresh_mutex = PTHREAD_MUTEX_INITIALIZER;
 static bool fbpad_fbink_refresh_flag = false;
 static bool fbpad_fbink_stop_flag = false;
+static int fbpad_fbink_fb_fd;
 
-void fbpad_fbink_start(void) {
+void fbpad_fbink_start(int fd, struct fb_var_screeninfo *pvinfo, struct fb_fix_screeninfo *pfinfo) {
+  printf("Using eink.\n");
+  fbpad_fbink_fb_fd = fd;
+  fbink_init(fbpad_fbink_fb_fd, &fbpad_fbink_einkConfig);
+  fbink_get_fb_info(pvinfo, pfinfo); // fbink performs platform-specific corrections to screen info structs
   pthread_create(&fbpad_fbink_refresh_thread, NULL, &fbpad_fbink_worker, NULL);
 }
 
@@ -26,7 +32,6 @@ void fbpad_fbink_stop(void) {
   pthread_mutex_lock(&fbpad_fbink_stop_mutex);
   fbpad_fbink_stop_flag = true;
   pthread_mutex_unlock(&fbpad_fbink_stop_mutex);
-  
   pthread_join(fbpad_fbink_refresh_thread, NULL);
 }
 
@@ -37,7 +42,6 @@ void fbpad_fbink_refresh(void) {
 }
 
 void *fbpad_fbink_worker(void *p) {
-  fbink_init(fb_fd(), &fbpad_fbink_einkConfig);
   bool b_stop = false;
   bool b_refresh = false;
   while(true) {
@@ -55,8 +59,8 @@ void *fbpad_fbink_worker(void *p) {
       pthread_mutex_lock(&fbpad_fbink_refresh_mutex);
       fbpad_fbink_refresh_flag = false;
       pthread_mutex_unlock(&fbpad_fbink_refresh_mutex);
-      
-      fbink_refresh(fb_fd(), fb_yoffset(), fb_xoffset(), fb_cols(), fb_rows(), &fbpad_fbink_einkConfig); 
+      // WIP: improve the following call
+      fbink_refresh(fbpad_fbink_fb_fd, fb_yoffset(), fb_xoffset(), fb_cols(), fb_rows(), &fbpad_fbink_einkConfig); 
     }
   }
   return p;

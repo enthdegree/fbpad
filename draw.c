@@ -8,6 +8,10 @@
 #include <unistd.h>
 #include "draw.h"
 
+#ifdef EINK
+#include "eink.h"
+#endif
+
 #define MIN(a, b)	((a) < (b) ? (a) : (b))
 #define MAX(a, b)	((a) > (b) ? (a) : (b))
 #define NLEVELS		(1 << 8)
@@ -104,6 +108,11 @@ int fb_init(char *dev)
 	if (ioctl(fd, FBIOGET_FSCREENINFO, &finfo) < 0)
 		goto failed;
 	fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC);
+
+#ifdef EINK
+	fbpad_fbink_start(fd, &vinfo, &finfo); // Start up eink thread, fix info structs before they're used by fbpad
+#endif
+	
 	bpp = (vinfo.bits_per_pixel + 7) >> 3;
 	fb = mmap(NULL, fb_len(), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	if (fb == MAP_FAILED)
@@ -120,6 +129,9 @@ failed:
 
 void fb_free(void)
 {
+#ifdef EINK
+	fbpad_fbink_stop();
+#endif
 	fb_cmap_save(0);
 	munmap(fb, fb_len());
 	close(fd);

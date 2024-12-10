@@ -430,10 +430,6 @@ int main(int argc, char **argv)
 		terms[i] = term_make();
 	write(1, hide, strlen(hide));
 	signalsetup();
-#ifdef EINK
-        printf("Using eink.\n");
-	fbpad_fbink_start();
-#endif
 	fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
 	while (args[0] && args[0][0] == '-')
 		args++;
@@ -442,9 +438,6 @@ int main(int argc, char **argv)
 	for (i = 0; i < NTERMS; i++)
 		term_free(terms[i]);
 	pad_free();
-#ifdef EINK
-	fbpad_fbink_stop();
-#endif
 	scr_done();
 	fb_free();
 	return 0;

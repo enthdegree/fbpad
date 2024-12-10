@@ -18,7 +18,6 @@ void fb_cmap(void);
 unsigned fb_val(int r, int g, int b);
 
 #ifdef EINK
-int fb_fd(void);
 int fb_yoffset(void);
 int fb_xoffset(void);
 #endif

@@ -6,7 +6,7 @@ OBJS = fbpad.o term.o pad.o draw.o font.o isdw.o scrsnap.o
 
 ifdef EINK
 OBJS += eink.o
-CFLAGS += -DEINK -std=gnu99 -pthread -I$(shell pwd)/../build/include
+CFLAGS += -DEINK -std=gnu99 -pthread -I$(shell pwd)/../buildroot/include/fbink
 LDFLAGS += -L$(shell pwd)/../build/lib -lfbink -pthread
 endif
 
