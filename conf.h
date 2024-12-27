@@ -12,8 +12,8 @@
 
 /* tinyfont files for regular, italic, and bold fonts */
 #define FR		"/mnt/onboard/fonts/tf/regular.tf" 
-#define FI		NULL
-#define FB		NULL
+#define FI		"/mnt/onboard/fonts/tf/italic.tf"
+#define FB		"/mnt/onboard/fonts/tf/bold.tf"
 
 /* where to write the screen shot */
 #define SCRSHOT		"/tmp/scr"

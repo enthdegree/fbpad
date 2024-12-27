@@ -136,6 +136,9 @@ static void bmp2fb(char *d, char *s, int fg, int bg, int nr, int nc)
 				*p++ = (c >> (k << 3)) & 0xff;
 		}
 	}
+#ifdef EINK
+	fbpad_fbink_refresh();
+#endif
 }
 
 static char *ch2fb(int fn, int c, int fg, int bg)
@@ -151,15 +154,15 @@ static char *ch2fb(int fn, int c, int fg, int bg)
 	fbbits = gc_put(c, fg, bg);
 	bmp2fb(fbbits, bits, fg & FN_C, bg & FN_C,
 		font_rows(fonts[fn]), font_cols(fonts[fn]));
-#ifdef EINK
-	fbpad_fbink_refresh();
-#endif
 	return fbbits;
 }
 
 static void fb_set(int r, int c, void *mem, int len)
 {
 	memcpy(fb_mem(fbroff + r) + (fbcoff + c) * bpp, mem, len * bpp);
+#ifdef EINK
+	fbpad_fbink_refresh();
+#endif
 }
 
 static char *rowbuf(unsigned c, int len)
@@ -179,9 +182,6 @@ static void fb_box(int sr, int er, int sc, int ec, unsigned val)
 	int i;
 	for (i = sr; i < er; i++)
 		fb_set(i, sc, row, ec - sc);
-#ifdef EINK
-	fbpad_fbink_refresh();
-#endif
 }
 
 void pad_border(unsigned c, int wid)
