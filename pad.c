@@ -160,9 +160,6 @@ static char *ch2fb(int fn, int c, int fg, int bg)
 static void fb_set(int r, int c, void *mem, int len)
 {
 	memcpy(fb_mem(fbroff + r) + (fbcoff + c) * bpp, mem, len * bpp);
-#ifdef EINK
-	fbpad_fbink_refresh();
-#endif
 }
 
 static char *rowbuf(unsigned c, int len)
@@ -182,6 +179,9 @@ static void fb_box(int sr, int er, int sc, int ec, unsigned val)
 	int i;
 	for (i = sr; i < er; i++)
 		fb_set(i, sc, row, ec - sc);
+#ifdef EINK
+	fbpad_fbink_refresh();
+#endif
 }
 
 void pad_border(unsigned c, int wid)
@@ -218,6 +218,9 @@ void pad_put(int ch, int r, int c, int fg, int bg)
 	else
 		for (i = 0; i < fnrows; i++)
 			fb_set(sr + i, sc, bits + (i * fncols * bpp), fncols);
+#ifdef EINK
+	fbpad_fbink_refresh();
+#endif
 }
 
 void pad_fill(int sr, int er, int sc, int ec, int c)

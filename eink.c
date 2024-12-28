@@ -13,7 +13,7 @@
 static const FBInkConfig fbpad_fbink_einkConfig = { 0U }; 
 static const struct timespec fbpad_fbink_cooldown_ts = { 0, 30*1000*1000 };
 
-#define REFRESH_STACK_LEN 3
+#define REFRESH_STACK_LEN 1
 
 static pthread_t fbpad_fbink_refresh_thread;
 static pthread_mutex_t fbpad_fbink_stop_mutex = PTHREAD_MUTEX_INITIALIZER;
