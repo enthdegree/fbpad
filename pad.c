@@ -136,9 +136,6 @@ static void bmp2fb(char *d, char *s, int fg, int bg, int nr, int nc)
 				*p++ = (c >> (k << 3)) & 0xff;
 		}
 	}
-#ifdef EINK
-	fbpad_fbink_refresh();
-#endif
 }
 
 static char *ch2fb(int fn, int c, int fg, int bg)
@@ -180,7 +177,7 @@ static void fb_box(int sr, int er, int sc, int ec, unsigned val)
 	for (i = sr; i < er; i++)
 		fb_set(i, sc, row, ec - sc);
 #ifdef EINK
-	fbpad_fbink_refresh();
+	fbpad_fbink_refresh((unsigned short int) sc, (unsigned short int) sr, (unsigned short int) ec-sc, (unsigned short int) er-sr);
 #endif
 }
 
@@ -219,7 +216,7 @@ void pad_put(int ch, int r, int c, int fg, int bg)
 		for (i = 0; i < fnrows; i++)
 			fb_set(sr + i, sc, bits + (i * fncols * bpp), fncols);
 #ifdef EINK
-	fbpad_fbink_refresh();
+        fbpad_fbink_refresh((unsigned short int) sc, (unsigned short int) sr, (unsigned short int) fncols, (unsigned short int) fnrows);
 #endif
 }
 
