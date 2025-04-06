@@ -1,7 +1,7 @@
 /*
  * FBPAD FRAMEBUFFER VIRTUAL TERMINAL
  *
- * Copyright (C) 2009-2024 Ali Gholami Rudi <ali at rudi dot ir>
+ * Copyright (C) 2009-2025 Ali Gholami Rudi <ali at rudi dot ir>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -40,12 +40,12 @@
 #define NTAGS		(sizeof(tags) - 1)
 #define NTERMS		(NTAGS * 2)
 #define TERMOPEN(i)	(term_fd(terms[i]))
-#define TERMSNAP(i)	(strchr(TAGS_SAVED, tags[(i) % NTAGS]))
 
 static char tags[] = TAGS;
 static struct term *terms[NTERMS];
 static int tops[NTAGS];		/* top terms of tags */
 static int split[NTAGS];	/* terms are shown together */
+static int saved[NTAGS];	/* saved tags */
 static int ctag;		/* current tag */
 static int ltag;		/* the last tag */
 static int exitit;
@@ -97,32 +97,30 @@ static struct term *tmain(void)
 	return TERMOPEN(cterm()) ? terms[cterm()] : NULL;
 }
 
-#define BRWID		2
-#define BRCLR		0xff0000
-
 static void t_conf(int idx)
 {
+	int brwid = term_borderwd();
 	int h1 = fb_rows() / 2 / pad_crows() * pad_crows();
-	int h2 = fb_rows() - h1 - 4 * BRWID;
+	int h2 = fb_rows() - h1 - 4 * brwid;
 	int w1 = fb_cols() / 2 / pad_ccols() * pad_ccols();
-	int w2 = fb_cols() - w1 - 4 * BRWID;
+	int w2 = fb_cols() - w1 - 4 * brwid;
 	int tag = idx % NTAGS;
 	int top = idx < NTAGS;
 	if (split[tag] == 0)
 		pad_conf(0, 0, fb_rows(), fb_cols());
 	if (split[tag] == 1)
-		pad_conf(top ? BRWID : h1 + 3 * BRWID, BRWID,
-			top ? h1 : h2, fb_cols() - 2 * BRWID);
+		pad_conf(top ? brwid : h1 + 3 * brwid, brwid,
+			top ? h1 : h2, fb_cols() - 2 * brwid);
 	if (split[tag] == 2)
-		pad_conf(BRWID, top ? BRWID : w1 + 3 * BRWID,
-			fb_rows() - 2 * BRWID, top ? w1 : w2);
+		pad_conf(brwid, top ? brwid : w1 + 3 * brwid,
+			fb_rows() - 2 * brwid, top ? w1 : w2);
 }
 
 static void t_hide(int idx, int save)
 {
 	if (save && TERMOPEN(idx))
 		term_hide(terms[idx]);
-	if (save && TERMOPEN(idx) && TERMSNAP(idx))
+	if (save && saved[idx % NTAGS] && TERMOPEN(idx))
 		scr_snap(idx);
 	term_save(terms[idx]);
 }
@@ -133,7 +131,7 @@ static int t_show(int idx, int show)
 	t_conf(idx);
 	term_load(terms[idx], show > 0);
 	if (show == 2)	/* redraw if scr_load() fails */
-		show += !TERMOPEN(idx) || !TERMSNAP(idx) || scr_load(idx);
+		show += !TERMOPEN(idx) || !saved[idx % NTAGS] || scr_load(idx);
 	if (show > 0)
 		term_redraw(show == 3);
 	if ((show == 2 || show == 3) && TERMOPEN(idx))
@@ -142,17 +140,20 @@ static int t_show(int idx, int show)
 }
 
 /* switch active terminal; hide oidx and show nidx */
-static int t_hideshow(int oidx, int save, int nidx, int show)
+/* + save: whether to save terminal contents for oidx */
+/* + show: same as in t_show() */
+/* + perm: whether it is a permanent switch */
+static int t_hideshow(int oidx, int save, int nidx, int show, int perm)
 {
 	int otag = oidx % NTAGS;
 	int ntag = nidx % NTAGS;
 	int ret;
 	t_hide(oidx, save);
-	if (show && split[otag] && otag == ntag)
-		pad_border(0, BRWID);
+	if (show && split[otag] && otag == ntag && perm)
+		pad_border(0, term_borderwd());
 	ret = t_show(nidx, show);
-	if (show && split[ntag])
-		pad_border(BRCLR, BRWID);
+	if (show && split[ntag] && perm)
+		pad_border(term_borderfg(), term_borderwd());
 	return ret;
 }
 
@@ -167,14 +168,14 @@ static void t_set(int n)
 		ltag = ctag;
 	if (ctag == n % NTAGS) {
 		if (split[n % NTAGS])
-			t_hideshow(cterm(), 0, n, 1);
+			t_hideshow(cterm(), 0, n, 1, 1);
 		else
-			t_hideshow(cterm(), 1, n, 2);
+			t_hideshow(cterm(), 1, n, 2, 1);
 	} else {
-		int draw = t_hideshow(cterm(), 1, n, 2);
+		int draw = t_hideshow(cterm(), 1, n, 2, 1);
 		if (split[n % NTAGS]) {
-			t_hideshow(n, 0, aterm(n), draw == 2 ? 1 : 2);
-			t_hideshow(aterm(n), 0, n, 1);
+			t_hideshow(n, 0, aterm(n), draw == 2 ? 1 : 2, 0);
+			t_hideshow(aterm(n), 0, n, 1, 1);
 		}
 	}
 	ctag = n % NTAGS;
@@ -184,8 +185,8 @@ static void t_set(int n)
 static void t_split(int n)
 {
 	split[ctag] = n;
-	t_hideshow(cterm(), 0, aterm(cterm()), 3);
-	t_hideshow(aterm(cterm()), 1, cterm(), 3);
+	t_hideshow(cterm(), 0, aterm(cterm()), 3, 0);
+	t_hideshow(aterm(cterm()), 1, cterm(), 3, 1);
 }
 
 static void t_exec(char **args, int swsig)
@@ -215,7 +216,7 @@ static void listtags(void)
 		if (TERMOPEN(aterm(i)))
 			nt++;
 		pad_put(i == ctag ? '(' : ' ', r, c++, fg, bg);
-		if (TERMSNAP(i))
+		if (saved[i])
 			pad_put(tags[i], r, c++, !nt ? bg : colors[nt], colors[0]);
 		else
 			pad_put(tags[i], r, c++, colors[nt], bg);
@@ -241,9 +242,13 @@ static void directkey(void)
 			t_exec(shell, 1);
 			return;
 		case 'm':
+			if (TERMOPEN(cterm()))
+				saved[ctag] = 1;
 			t_exec(mail, 0);
 			return;
 		case 'e':
+			if (TERMOPEN(cterm()))
+				saved[ctag] = 0;
 			t_exec(editor, 0);
 			return;
 		case 'j':
@@ -306,13 +311,13 @@ static void peepterm(int termid)
 {
 	int visible = !hidden && ctag == (termid % NTAGS) && split[ctag];
 	if (termid != cterm())
-		t_hideshow(cterm(), 0, termid, visible);
+		t_hideshow(cterm(), 0, termid, visible, 0);
 }
 
 static void peepback(int termid)
 {
 	if (termid != cterm())
-		t_hideshow(termid, 0, cterm(), !hidden);
+		t_hideshow(termid, 0, cterm(), !hidden, 1);
 }
 
 static int pollterms(void)
@@ -386,8 +391,8 @@ static void signalreceived(int n)
 		hidden = 0;
 		fb_cmap();
 		if (t_show(cterm(), 2) == 3 && split[ctag]) {
-			t_hideshow(cterm(), 0, aterm(cterm()), 3);
-			t_hideshow(aterm(cterm()), 0, cterm(), 1);
+			t_hideshow(cterm(), 0, aterm(cterm()), 3, 0);
+			t_hideshow(aterm(cterm()), 0, cterm(), 1, 1);
 		}
 		break;
 	case SIGCHLD:
@@ -432,6 +437,8 @@ int main(int argc, char **argv)
 	fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
 	while (args[0] && args[0][0] == '-')
 		args++;
+	for (i = 0; i < NTAGS; i++)
+		saved[i] = strchr(TAGS_SAVED, tags[i % NTAGS]) != NULL;
 	mainloop(args[0] ? args : NULL);
 	write(1, show, strlen(show));
 	for (i = 0; i < NTERMS; i++)
