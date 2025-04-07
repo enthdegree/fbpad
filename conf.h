@@ -19,7 +19,7 @@
 #define SCRSHOT		"/tmp/scr"
 
 /* file from which to read terminal font and colour options */
-#define CLRFILE		"/tmp/clr"
+#define CLRFILE		"/mnt/onboard/.adds/efbpad/fbpad_clrfile"
 
 /* lock command password; NULL disables locking */
 #define PASS		NULL

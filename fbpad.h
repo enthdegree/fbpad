@@ -16,6 +16,7 @@ int iszw(int c);
 /* term.c */
 struct term *term_make(void);
 void term_free(struct term *term);
+void term_remake(struct term *term);
 void term_load(struct term *term, int visible);
 void term_save(struct term *term);
 int term_fd(struct term *term);
@@ -29,6 +30,7 @@ void term_end(void);
 void term_screenshot(char *path);
 void term_scrl(int pos);
 void term_redraw(int all);
+void term_reset(void);
 int term_colors(char *path);
 int term_borderwd(void);
 int term_borderfg(void);

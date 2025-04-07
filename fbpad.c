@@ -31,6 +31,7 @@
 #include "conf.h"
 #include "fbpad.h"
 #include "draw.h"
+
 #ifdef EINK
 #include "eink.h"
 #endif
@@ -52,6 +53,7 @@ static int exitit;
 static int hidden;		/* do not touch the framebuffer */
 static int taglock;		/* disable tag switching */
 static int cmdmode;		/* execute a command and exit */
+static int ctlfifo; 
 
 static int readchar(void)
 {
@@ -226,83 +228,113 @@ static void listtags(void)
 		pad_put(' ', r, c, fg, bg);
 }
 
-static void directkey(void)
+static int readctlchar(void)
+{
+	char b;
+	if (read(ctlfifo, &b, 1) > 0)
+		return (unsigned char) b;
+	return -1;
+}
+
+static void openctlfifo(void)
+{
+	char *ctlfifo_path = getenv("FBPAD_FIFO");
+	if(!*ctlfifo_path) {
+		perror("[fbpad]: $FBPAD_FIFO not set");
+		ctlfifo = -1;
+		return;
+	}
+	ctlfifo = open(ctlfifo_path, O_RDONLY | O_NONBLOCK);
+	if(ctlfifo < 0)
+		perror("[fbpad]: cannot read $FBPAD_FIFO");
+}
+
+static void directctlchar(void)
 {
 	char *shell[32] = SHELL;
 	char *mail[32] = MAIL;
 	char *editor[32] = EDITOR;
-	int c = readchar();
-#ifdef FBPAD_ESC
-	if (c == ESC) {
-		switch ((c = readchar())) {
-		case 'c':
-			t_exec(shell, 0);
-			return;
-		case ';':
-			t_exec(shell, 1);
-			return;
-		case 'm':
-			if (TERMOPEN(cterm()))
-				saved[ctag] = 1;
-			t_exec(mail, 0);
-			return;
-		case 'e':
-			if (TERMOPEN(cterm()))
-				saved[ctag] = 0;
-			t_exec(editor, 0);
-			return;
-		case 'j':
-		case 'k':
-			t_set(aterm(cterm()));
-			return;
-		case 'o':
-			t_set(tterm(ltag));
-			return;
-		case 'p':
-			listtags();
-			return;
-		case '\t':
-			if (nterm() != cterm())
-				t_set(nterm());
-			return;
-		case CTRLKEY('q'):
-			exitit = 1;
-			return;
-		case 's':
-			term_screenshot(SCRSHOT);
-			return;
-		case 'y':
+	int c = readctlchar();
+	if(c < 0) return;
+	switch (c) {
+	case 'c':
+		t_exec(shell, 0);
+		break;
+	case ';':
+		t_exec(shell, 1);
+		break;
+	case 'm':
+		if (TERMOPEN(cterm()))
+			saved[ctag] = 1;
+		t_exec(mail, 0);
+		break;
+	case 'e':
+		if (TERMOPEN(cterm()))
+			saved[ctag] = 0;
+		t_exec(editor, 0);
+		break;
+	case 'j':
+	case 'k':
+		t_set(aterm(cterm()));
+		break;
+	case 'o':
+		t_set(tterm(ltag));
+		break;
+	case 'p':
+		listtags();
+		break;
+	case '\t':
+		if (nterm() != cterm())
+			t_set(nterm());	
+		break;
+	case CTRLKEY('q'):
+		exitit = 1;
+		break;
+	case 's':
+		term_screenshot(SCRSHOT);
+		break;
+	case 'y':
+		term_redraw(1);
+		break;
+	case CTRLKEY('e'):
+		if (!term_colors(CLRFILE)) {
+			for (int i = 0; i < NTERMS; i++) 
+				term_remake(terms[i]);
+			term_load(terms[cterm()], 1);
+			term_reset();	
 			term_redraw(1);
-			return;
-		case CTRLKEY('e'):
-			if (!term_colors(CLRFILE))
-				term_redraw(1);
-			return;
-		case CTRLKEY('o'):
-			taglock = 1 - taglock;
-			return;
-		case ',':
-			term_scrl(pad_rows() / 2);
-			return;
-		case '.':
-			term_scrl(-pad_rows() / 2);
-			return;
-		case '=':
-			t_split(split[ctag] == 1 ? 2 : 1);
-			return;
-		case '-':
-			t_split(0);
-			return;
-		default:
-			if (strchr(tags, c)) {
-				t_set(tterm(strchr(tags, c) - tags));
-				return;
-			}
-			if (tmain())
-				term_send(ESC);
+		}
+		break;
+	case CTRLKEY('o'):
+		taglock = 1 - taglock;
+		break;
+	case ',':
+		term_scrl(pad_rows() / 2);
+		break;
+	case '.':
+		term_scrl(-pad_rows() / 2);
+		break;
+	case '=':
+		t_split(split[ctag] == 1 ? 2 : 1);
+		break;
+	case '-':
+		t_split(0);
+		break;
+	default:
+		if (strchr(tags, c)) {
+			t_set(tterm(strchr(tags, c) - tags));
+			break;
 		}
 	}
-#endif
+	#ifdef EINK	
+	// Some of these change the framebuffer in complicated ways, just refresh everything
+	fbpad_fbink_refresh((unsigned short int) 0, (unsigned short int) 0, (unsigned short int) fb_cols(), (unsigned short int) fb_rows());
+	#endif
+}
+
+static void directkey(void)
+{
+	int c = readchar();
 	if (c != -1 && tmain())
 		term_send(c);
 }
@@ -339,8 +371,10 @@ static int pollterms(void)
 		return 0;
 	if (ufds[0].revents & (POLLFLAGS & ~POLLIN))
 		return 1;
-	if (ufds[0].revents & POLLIN)
+	if (ufds[0].revents & POLLIN) { 
+		if(ctlfifo) directctlchar();
 		directkey();
+	}
 	for (i = 1; i < n; i++) {
 		if (!(ufds[i].revents & POLLFLAGS))
 			continue;
@@ -365,8 +399,14 @@ static void mainloop(char **args)
 	oldtermios = termios;
 	cfmakeraw(&termios);
 	tcsetattr(0, TCSAFLUSH, &termios);
+
+	term_colors(CLRFILE);
+	for (int i = 0; i < NTERMS; i++) 
+		term_remake(terms[i]);
+
 	term_load(terms[cterm()], 1);
 	term_redraw(1);
+
 	if (args) {
 		cmdmode = 1;
 		t_exec(args, 0);
@@ -434,6 +474,7 @@ int main(int argc, char **argv)
 		terms[i] = term_make();
 	write(1, hide, strlen(hide));
 	signalsetup();
+	openctlfifo();
 	fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
 	while (args[0] && args[0][0] == '-')
 		args++;
@@ -446,5 +487,6 @@ int main(int argc, char **argv)
 	pad_free();
 	scr_done();
 	fb_free();
+	close(ctlfifo);
 	return 0;
 }

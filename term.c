@@ -341,7 +341,7 @@ void term_read(void)
 	lazy_flush();
 }
 
-static void term_reset(void)
+void term_reset(void)
 {
 	row = col = 0;
 	top = 0;
@@ -518,6 +518,29 @@ static void resizeupdate(int or, int oc, int nr,  int nc)
 		term->clr[dst] = src >= 0 ? term->clr[src] : color();
 		dst = nc <= oc ? dst + 1 : dst - 1;
 	}
+}
+
+void term_remake(struct term *term) // Reallocate terminals in case the font size changes
+{
+	free(term->screen);
+	free(term->hist);
+	free(term->clr);
+	free(term->dirty);
+
+	term->screen = malloc(pad_rows() * pad_cols() * sizeof(term->screen[0]));
+	term->hist = malloc(NHIST * pad_cols() * sizeof(term->hist[0]));
+	term->clr = malloc(pad_rows() * pad_cols() * sizeof(term->clr[0]));
+	term->dirty = malloc(pad_rows() * sizeof(term->dirty[0]));
+	
+	memset(term->screen, 0, pad_rows() * pad_cols() * sizeof(term->screen[0]));
+	memset(term->hist, 0, NHIST * pad_cols() * sizeof(term->hist[0]));
+	memset(term->clr, 0, pad_rows() * pad_cols() * sizeof(term->clr[0]));
+	memset(&term->cur, 0, sizeof(term->cur));
+	memset(&term->sav, 0, sizeof(term->sav));
+	term->hrow = 0;
+	term->hpos = 0;
+	term->top = 0;
+	term->bot = 0;
 }
 
 /* redraw the screen; if all is zero, update changed lines only */

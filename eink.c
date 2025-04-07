@@ -24,7 +24,7 @@ static FBInkRect fbpad_fbink_rect_buf = { 0U };
 static const FBInkRect* fbpad_fbink_rect_arg = &fbpad_fbink_rect_buf;
 
 void fbpad_fbink_start(int fd, struct fb_var_screeninfo *pvinfo, struct fb_fix_screeninfo *pfinfo) {
-  printf("Using eink.\n");
+  printf("[fbpad] starting eink refresh thread.\n");
   fbpad_fbink_fb_fd = fd;
   fbink_init(fbpad_fbink_fb_fd, &fbpad_fbink_einkConfig);
   fbink_get_fb_info(pvinfo, pfinfo); // fbink performs platform-specific corrections to screen info structs

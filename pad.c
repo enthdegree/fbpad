@@ -23,12 +23,8 @@ int pad_init(void)
 {
 	if (pad_font(FR, FI, FB))
 		return 1;
-	fnrows = font_rows(fonts[0]);
-	fncols = font_cols(fonts[0]);
 	if (gc_init())
 		return 1;
-	rows = fb_rows() / fnrows;
-	cols = fb_cols() / fncols;
 	bpp = FBM_BPP(fb_mode());
 	pad_conf(0, 0, fb_rows(), fb_cols());
 	return 0;
@@ -215,7 +211,7 @@ void pad_put(int ch, int r, int c, int fg, int bg)
 		for (i = 0; i < fnrows; i++)
 			fb_cpy(sr + i, sc, bits + (i * fncols * bpp), fncols);
 #ifdef EINK
-        fbpad_fbink_refresh((unsigned short int) sc, (unsigned short int) sr, (unsigned short int) fncols, (unsigned short int) fnrows);
+    fbpad_fbink_refresh((unsigned short int) sc, (unsigned short int) sr, (unsigned short int) fncols, (unsigned short int) fnrows);
 #endif
 }
 
@@ -248,6 +244,11 @@ int pad_font(char *fr, char *fi, char *fb)
 	fonts[1] = fi ? font_open(fi) : NULL;
 	fonts[2] = fb ? font_open(fb) : NULL;
 	gc_refresh();
+	
+	fnrows = font_rows(fonts[0]);
+	fncols = font_cols(fonts[0]);
+	rows = fb_rows() / fnrows;
+	cols = fb_cols() / fncols;
 	return 0;
 }
 
@@ -259,13 +260,13 @@ char *pad_fbdev(void)
 	return fbdev;
 }
 
-/* character height */
+/* character height, pixels */
 int pad_crows(void)
 {
 	return fnrows;
 }
 
-/* character width */
+/* character width, pixels */
 int pad_ccols(void)
 {
 	return fncols;
