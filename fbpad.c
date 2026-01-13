@@ -228,12 +228,9 @@ static void listtags(void)
 		pad_put(' ', r, c, fg, bg);
 }
 
-static int readctlchar(void)
+static int readctlchar(char * b)
 {
-	char b;
-	if (read(ctlfifo, &b, 1) > 0)
-		return (unsigned char) b;
-	return -1;
+	return read(ctlfifo, b, 1); 
 }
 
 static void openctlfifo(void)
@@ -254,9 +251,10 @@ static void directctlchar(void)
 	char *shell[32] = SHELL;
 	char *mail[32] = MAIL;
 	char *editor[32] = EDITOR;
-	int c = readctlchar();
-	if(c < 0) return;
-	switch (c) {
+	char c;
+	if(readctlchar(&c) <= 0) return;
+	//printf("Got control char 0x%x\n", c);
+	switch(c) {
 	case 'c':
 		t_exec(shell, 0);
 		break;
