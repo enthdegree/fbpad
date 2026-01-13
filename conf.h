@@ -21,6 +21,9 @@
 /* file from which to read terminal font and colour options */
 #define CLRFILE		"/mnt/onboard/.adds/efbpad/fbpad_clrfile"
 
+/* quit confirmation key; zero disables confirmation */
+#define QUITKEY		0
+
 /* lock command password; NULL disables locking */
 #define PASS		NULL
 

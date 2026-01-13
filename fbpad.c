@@ -48,9 +48,11 @@ static int tops[NTAGS];		/* top terms of tags */
 static int split[NTAGS];	/* terms are shown together */
 static int saved[NTAGS];	/* saved tags */
 static int ctag;		/* current tag */
-static int ltag;		/* the last tag */
-static int exitit;
+static int ltag;		/* last tag */
+static int exitit;		/* exit fbpad if set */
+static int confirm;		/* wait for exit confirmation */
 static int hidden;		/* do not touch the framebuffer */
+static int locked;		/* fbpad is locked; wait for PASS */
 static int taglock;		/* disable tag switching */
 static int cmdmode;		/* execute a command and exit */
 static int ctlfifo; 
@@ -66,13 +68,13 @@ static int readchar(void)
 /* the current terminal */
 static int cterm(void)
 {
-	return tops[ctag] * NTAGS + ctag;
+	return tops[ctag] ? NTAGS + ctag : ctag;
 }
 
 /* tag's active terminal */
 static int tterm(int n)
 {
-	return tops[n] * NTAGS + n;
+	return tops[n] ? NTAGS + n : n;
 }
 
 /* the other terminal in the same tag */
@@ -180,8 +182,8 @@ static void t_set(int n)
 			t_hideshow(aterm(n), 0, n, 1, 1);
 		}
 	}
-	ctag = n % NTAGS;
-	tops[ctag] = n / NTAGS;
+	ctag = n >= NTAGS ? n - NTAGS : n;
+	tops[ctag] = n >= NTAGS;
 }
 
 static void t_split(int n)
@@ -257,51 +259,48 @@ static void directctlchar(void)
 	switch(c) {
 	case 'c':
 		t_exec(shell, 0);
-		break;
+		return;
 	case ';':
 		t_exec(shell, 1);
-		break;
+		return;
 	case 'm':
 		if (TERMOPEN(cterm()))
 			saved[ctag] = 1;
 		t_exec(mail, 0);
-		break;
+		return;
 	case 'e':
-		if (TERMOPEN(cterm()))
+		if (TERMOPEN(cterm())) {
 			saved[ctag] = 0;
+			scr_free(ctag);
+			scr_free(aterm(ctag));
+		}
 		t_exec(editor, 0);
-		break;
+		return;
 	case 'j':
 	case 'k':
 		t_set(aterm(cterm()));
-		break;
+		return;
 	case 'o':
 		t_set(tterm(ltag));
-		break;
+		return;
 	case 'p':
 		listtags();
-		break;
+		return;
 	case '\t':
 		if (nterm() != cterm())
-			t_set(nterm());	
-		break;
+			t_set(nterm());
+		return;
 	case CTRLKEY('q'):
-		exitit = 1;
-		break;
+		if (QUITKEY)
+			confirm = 1;
+		else
+			exitit = 1;
+		return;
 	case 's':
 		term_screenshot(SCRSHOT);
-		break;
+		return;
 	case 'y':
 		term_redraw(1);
-		break;
-	case CTRLKEY('e'):
-		if (!term_colors(CLRFILE)) {
-			for (int i = 0; i < NTERMS; i++) 
-				term_remake(terms[i]);
-			term_load(terms[cterm()], 1);
-			term_reset();	
-			term_redraw(1);
-		}
 		break;
 	case CTRLKEY('o'):
 		taglock = 1 - taglock;
@@ -423,11 +422,12 @@ static void signalreceived(int n)
 	case SIGUSR1:
 		hidden = 1;
 		t_hide(cterm(), 1);
+		fb_leave();
 		ioctl(0, VT_RELDISP, 1);
 		break;
 	case SIGUSR2:
 		hidden = 0;
-		fb_cmap();
+		fb_enter();
 		if (t_show(cterm(), 2) == 3 && split[ctag]) {
 			t_hideshow(cterm(), 0, aterm(cterm()), 3, 0);
 			t_hideshow(aterm(cterm()), 0, cterm(), 1, 1);
